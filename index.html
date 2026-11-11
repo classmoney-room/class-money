@@ -148,7 +148,7 @@ tbody tr:hover{background:#fbfefb}
 
       <section id="appView" class="hidden">
         <div class="page-heading">
-          <div><p class="eyebrow">CLASSROOM COLLECTION</p><h1>จัดการเงินห้องเรียน</h1><p class="muted">บันทึกออนไลน์และดูข้อมูลร่วมกันได้ตามสิทธิ์บัญชี (พร้อมระบบสะสมยอดค้างและดอกเบี้ย/ค่าปรับ)</p></div>
+          <div><p class="eyebrow">CLASSROOM COLLECTION</p><h1>จัดการเงินห้องเรียน</h1><p class="muted">บันทึกออนไลน์และดูข้อมูลร่วมกันได้ตามสิทธิ์บัญชี (พร้อมระบบสะสมยอดค้าง, ดอกเบี้ย และค่าปรับระเบียบรายบุคคล)</p></div>
           <div class="date-control"><label for="selectedDate">วันที่บันทึก</label><input id="selectedDate" type="date"></div>
         </div>
 
@@ -160,11 +160,11 @@ tbody tr:hover{background:#fbfefb}
         </div>
 
         <div class="toolbar">
-          <div><h2>รายชื่อนักเรียน</h2><p class="muted">แตะที่แถบรายชื่อเพื่อเปลี่ยนสถานะการชำระเงิน</p></div>
+          <div><h2>รายชื่อนักเรียน</h2><p class="muted">แตะที่แถบรายชื่อเพื่อเปลี่ยนสถานะการชำระเงินของวันนี้</p></div>
           <div class="toolbar-actions">
             <label class="rate-control">เก็บคนละ <input id="dailyRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="เช่น 10"> บาท</label>
             <button id="saveRateBtn" class="button button-soft">บันทึกอัตราของวันนี้</button>
-            <label class="rate-control">ค่าปรับ/วัน <input id="fineRateInput" type="number" min="0" step="1" value="5"> บาท</label>
+            <label class="rate-control">ค่าปรับค้าง/วัน <input id="fineRateInput" type="number" min="0" step="1" value="5"> บาท</label>
             <button id="saveFineRateBtn" class="button button-soft">บันทึกค่าปรับ</button>
           </div>
         </div>
@@ -172,20 +172,25 @@ tbody tr:hover{background:#fbfefb}
         <div class="student-grid" id="studentGrid"></div>
 
         <section class="panel">
-          <div class="panel-heading"><div><h2>เมนูจัดการ</h2><p class="muted">ดูยอดค้าง (รวมดอกเบี้ยสะสมไม่หมดอายุ), ประวัติ และส่งออกข้อมูล</p></div></div>
+          <div class="panel-heading"><div><h2>เมนูจัดการ</h2><p class="muted">ดูยอดค้าง (รวมดอกเบี้ยและค่าปรับระเบียบรายบุคคล), บันทึกระเบียบ, ประวัติ และส่งออกข้อมูล</p></div></div>
           <div class="nav-tabs">
-            <button class="tab active" data-tab="arrears">ยอดค้างรายบุคคล (รวมค่าปรับ)</button>
+            <button class="tab active" data-tab="arrears">ยอดค้างรายบุคคล (สุทธิ)</button>
+            <button class="tab" data-tab="violations">บันทึกค่าปรับระเบียบ (รายวัน)</button>
             <button class="tab" data-tab="history">ประวัติรายวัน</button>
             <button class="tab" data-tab="export">ส่งออกข้อมูล</button>
           </div>
           <div id="arrearsPanel" class="tab-panel"><div id="arrearsContent" class="table-wrap"></div></div>
+          <div id="violationsPanel" class="tab-panel hidden">
+            <p class="muted">บันทึกความผิดระเบียบรายบุคคลสำหรับวันที่เลือก (เช่น ชุดผิดระเบียบ +10 บาท, เล็บยาว +5 บาท หรืออื่นๆ)</p>
+            <div id="violationsContent" class="table-wrap"></div>
+          </div>
           <div id="historyPanel" class="tab-panel hidden"><div id="historyContent" class="table-wrap"></div></div>
           <div id="exportPanel" class="tab-panel hidden">
-            <p class="muted">ดาวน์โหลดข้อมูลการเก็บเงินทุกวันที่มีการกำหนดอัตรา รวมสถานะ ยอดค้าง และดอกเบี้ย/ค่าปรับสะสม</p>
+            <p class="muted">ดาวน์โหลดข้อมูลการเก็บเงินทุกวัน รวมสถานะ ยอดค้าง ดอกเบี้ย และค่าปรับระเบียบรายบุคคล</p>
             <button id="exportBtn" class="button button-primary">ดาวน์โหลดไฟล์ CSV สำหรับ Excel</button>
           </div>
         </section>
-        <p class="footnote">ข้อมูลจัดเก็บบบน Firebase Cloud Firestore (ยอดค้างสะสมต่อเนื่องไม่หมดอายุ)</p>
+        <p class="footnote">ข้อมูลจัดเก็บบน Firebase Cloud Firestore (ยอดค้างสะสมต่อเนื่องไม่หมดอายุ)</p>
       </section>
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -214,9 +219,8 @@ const money = n => `${Number(n || 0).toLocaleString("th-TH", {maximumFractionDig
 const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const roster = ["นายพาทิศ นิยม", "นายวิชยุตม์ เพียรธัญญะการ", "น.ส.ธนัสถา มณีฉาย", "น.ส.ธัญชนก แสงสุข", "น.ส.ปริยาภัทร เรืองอินทร์", "น.ส.ปุณยาพร ยวงรัมย์", "น.ส.พัชรีวรรณ ปรางทอง", "นายกิตติภณ เค้าเจริญ", "นายชุติเทพ เพ็ชรประดับ", "นายปฐวี ปานอุทัย", "น.ส.ศรันยรัตน์ สร้อยสนธิ์", "น.ส.อนัญพร ชาติไกรบัญชา", "นายชยณัฐ ช่างเจรจา", "นายดัสกร แสนหลวง", "นายนพดล วงษ์คํา", "นายพัชรวัฒน์ กัณหา", "นายแทนธนพัทธ์ ดีขุนทด", "นายธนกร มีมาก", "น.ส.มิญชญา วรรณทอง", "นายกลวัชร อุ่นเมือง", "นายธนกร ไกรรักษ์", "น.ส.ณัชชา หมอนอิง", "น.ส.ปาณิศา แปนใจ", "นายเทวินทร์ ปานดำ", "นายพระนาย รักษา", "นายภูวณัฎฐ์ ฮุมโฮม", "นายศิรวิทย์ มีมาเจริญดี", "นายศิวพัชร์ บัวเถื่อน", "นายอิสเรศ พรหมอินทร์", "นายเอกศิษฏ์ สวัสดิพันธ์", "น.ส.จิราธิป ขวัญพงษ์", "น.ส.ชนัญชิตา ปานดำ", "น.ส.ภัทรณิชานันท์ พุ่มยิ้ม", "นายเชิดศักดิ์ อภิชาติ", "น.ส.นันท์นภัส สุสดี", "น.ส.รติมา กล้ากสิกิจ", "น.ส.อาภัสรา ศรีเดช", "น.ส.อาภาภัทร พูลเพิ่ม", "น.ส.ปิ่นมณี ดีเคน"];
 let students=roster.map((full_name,i)=>({student_no:i+1,full_name}));
-let days=[], payments=[], selectedDate=today(), busy=new Set(), toastTimer, currentUser=null, currentRole=null;
+let days=[], payments=[], violations=[], selectedDate=today(), busy=new Set(), toastTimer, currentUser=null, currentRole=null;
 
-// กำหนดอัตราดอกเบี้ย/ค่าปรับต่อวัน (สามารถแก้ไขตัวเลขเริ่มต้นตรงนี้ได้ในโค้ด)
 let fineRate = 5; 
 
 function toast(message,error=false){const el=$("toast");el.textContent=message;el.className=`toast show${error?" error":""}`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className="toast",3200)}
@@ -227,7 +231,6 @@ function currentDay(){return days.find(d=>d.collection_date===selectedDate)}
 function rateForDay(){return Number(currentDay()?.amount_per_student||0)}
 function paidSet(){return new Set(payments.filter(p=>p.collection_date===selectedDate&&p.is_paid).map(p=>Number(p.student_no)))}
 
-// คำนวณจำนวนวันที่เกินกำหนด (จากวันที่กำหนดเก็บจนถึงปัจจุบัน)
 function getDaysOverdue(collectionDateStr) {
   const todayStr = today();
   const d1 = new Date(collectionDateStr + "T00:00:00");
@@ -239,13 +242,15 @@ function getDaysOverdue(collectionDateStr) {
 
 async function loadCloudData(){
   setConnection("กำลังโหลดข้อมูล…","offline");
-  const [daySnap,paySnap,configSnap]=await Promise.all([
+  const [daySnap,paySnap,violSnap,configSnap]=await Promise.all([
     db.collection("days").get(),
     db.collection("payments").get(),
+    db.collection("violations").get(),
     db.collection("settings").doc("config").get()
   ]);
   days=daySnap.docs.map(d=>d.data());
   payments=paySnap.docs.map(d=>d.data());
+  violations=violSnap.docs.map(d=>d.data());
   if(configSnap.exists && configSnap.data().fineRate !== undefined){
     fineRate = Number(configSnap.data().fineRate);
   }
@@ -275,6 +280,34 @@ function renderDashboard(){
   }).join("");
 }
 
+function renderViolationsTable(){
+  const rows = students.map(s => {
+    const v = violations.find(x => x.collection_date === selectedDate && Number(x.student_no) === s.student_no) || { uniform_fine: 0, nail_fine: 0, other_fine: 0 };
+    return `<tr>
+      <td>${String(s.student_no).padStart(2,"0")}</td>
+      <td>${escapeHtml(s.full_name)}</td>
+      <td><input type="number" min="0" step="1" class="viol-input" data-student="${s.student_no}" data-field="uniform_fine" value="${v.uniform_fine || 0}" ${canEdit()?"":"disabled"} style="width:80px;padding:6px;border:1px solid var(--line);border-radius:8px;"></td>
+      <td><input type="number" min="0" step="1" class="viol-input" data-student="${s.student_no}" data-field="nail_fine" value="${v.nail_fine || 0}" ${canEdit()?"":"disabled"} style="width:80px;padding:6px;border:1px solid var(--line);border-radius:8px;"></td>
+      <td><input type="number" min="0" step="1" class="viol-input" data-student="${s.student_no}" data-field="other_fine" value="${v.other_fine || 0}" ${canEdit()?"":"disabled"} style="width:80px;padding:6px;border:1px solid var(--line);border-radius:8px;"></td>
+    </tr>`;
+  }).join("");
+
+  $("violationsContent").innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>เลขที่</th>
+          <th>ชื่อ-นามสกุล</th>
+          <th>ชุดผิดระเบียบ (บาท)</th>
+          <th>เล็บยาว (บาท)</th>
+          <th>อื่นๆ (บาท)</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
 function renderArrears(){
   const rows = students.map(s => {
     const list = days.filter(d => Number(d.amount_per_student) > 0 && !payments.some(p => p.collection_date === d.collection_date && Number(p.student_no) === s.student_no && p.is_paid));
@@ -290,38 +323,53 @@ function renderArrears(){
       baseTotal += base;
       interestTotal += interest;
       const dateFormatted = new Date(d.collection_date + "T00:00:00").toLocaleDateString("th-TH");
-      detailParts.push(`${dateFormatted} (ค้าง ${overdueDays} วัน: ต้น ${base} + ดอกเบี้ย ${interest}บ.)`);
+      detailParts.push(`${dateFormatted} (ต้น ${base} + ดอกเบี้ย ${interest}บ.)`);
     });
 
-    const grandTotal = baseTotal + interestTotal;
+    // รวมค่าปรับระเบียบรายบุคคลทั้งหมดที่ยังไม่เคลียร์หรือทุกวัน
+    const studentViolations = violations.filter(v => Number(v.student_no) === s.student_no);
+    let violTotal = 0;
+    studentViolations.forEach(v => {
+      const uf = Number(v.uniform_fine || 0);
+      const nf = Number(v.nail_fine || 0);
+      const ofine = Number(v.other_fine || 0);
+      const sumV = uf + nf + ofine;
+      if (sumV > 0) {
+        violTotal += sumV;
+        const dateFormatted = new Date(v.collection_date + "T00:00:00").toLocaleDateString("th-TH");
+        detailParts.push(`${dateFormatted} [ค่าปรับระเบียบ: ${sumV}บ.]`);
+      }
+    });
+
+    const grandTotal = baseTotal + interestTotal + violTotal;
 
     return `<tr>
       <td>${String(s.student_no).padStart(2,"0")}</td>
       <td>${escapeHtml(s.full_name)}</td>
-      <td>${list.length} วัน</td>
       <td>${money(baseTotal)}</td>
       <td style="color:#b34b42;">${money(interestTotal)}</td>
+      <td style="color:#b34b42;">${money(violTotal)}</td>
       <td><strong>${money(grandTotal)}</strong></td>
       <td>${detailParts.join("<br>") || "—"}</td>
     </tr>`;
   }).join("");
 
-  $("arrearsContent").innerHTML = days.length ? `
+  $("arrearsContent").innerHTML = `
     <table>
       <thead>
         <tr>
           <th>เลขที่</th>
           <th>ชื่อ-นามสกุล</th>
-          <th>ค้าง</th>
-          <th>เงินต้น</th>
-          <th>ดอกเบี้ย/ค่าปรับ</th>
+          <th>เงินต้นค้าง</th>
+          <th>ดอกเบี้ยค้าง</th>
+          <th>ค่าปรับระเบียบ</th>
           <th>รวมยอดสุทธิ</th>
-          <th>รายละเอียดวันที่ค้าง (ไม่หมดอายุ)</th>
+          <th>รายละเอียด (สะสมไม่หมดอายุ)</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
-  ` : `<div class="empty">ยังไม่มีข้อมูลวันที่กำหนดอัตราเก็บเงิน</div>`;
+  `;
 }
 
 function renderHistory(){
@@ -332,7 +380,7 @@ function renderHistory(){
   }).join("")}</tbody></table>`:`<div class="empty">ยังไม่มีประวัติการเก็บเงิน</div>`;
 }
 
-function renderAll(){renderDashboard();renderArrears();renderHistory()}
+function renderAll(){renderDashboard();renderArrears();renderViolationsTable();renderHistory()}
 
 async function saveRate(){
   if(!canEdit())return toast("บัญชีนี้ไม่มีสิทธิ์แก้ไขข้อมูล",true);
@@ -376,37 +424,67 @@ async function togglePayment(no){
   }catch(e){console.error(e);toast("บันทึกไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore",true)}
 }
 
+async function updateViolation(no, field, val){
+  if(!canEdit())return;
+  const id = `${selectedDate}_${no}`;
+  let existing = violations.find(v => v.collection_date === selectedDate && Number(v.student_no) === no);
+  let data = existing ? {...existing} : { collection_date: selectedDate, student_no: no, uniform_fine: 0, nail_fine: 0, other_fine: 0 };
+  data[field] = Number(val) || 0;
+  data.updated_at = firebase.firestore.FieldValue.serverTimestamp();
+  data.updated_by = currentUser.uid;
+
+  try {
+    await db.collection("violations").doc(id).set(data, { merge: true });
+    const idx = violations.findIndex(v => v.collection_date === selectedDate && Number(v.student_no) === no);
+    if(idx >= 0) violations[idx] = data; else violations.push(data);
+    renderArrears();
+  } catch(e) {
+    console.error(e);
+    toast("บันทึกค่าปรับระเบียบไม่สำเร็จ", true);
+  }
+}
+
 function exportCsv(){
-  const rows=[["วันที่","เลขที่","ชื่อ-นามสกุล","เงินต้น","สถานะการจ่าย","จำนวนวันที่เกินกำหนด","ดอกเบี้ย/ค่าปรับ","รวมยอดสุทธิ"]];
-  for(const d of [...days].sort((a,b)=>a.collection_date.localeCompare(b.collection_date))){
-    for(const s of students){
-      const paid=payments.some(p=>p.collection_date===d.collection_date&&Number(p.student_no)===s.student_no&&p.is_paid);
-      const base=Number(d.amount_per_student);
-      const overdue=paid?0:getDaysOverdue(d.collection_date);
-      const interest=paid?0:(overdue*fineRate);
-      const total=base+interest;
-      rows.push([d.collection_date,s.student_no,s.full_name,base,paid?"จ่ายแล้ว":"ยังไม่จ่าย",overdue,interest,total]);
-    }
+  const rows=[["เลขที่","ชื่อ-นามสกุล","เงินต้นค้างทั้งหมด","ดอกเบี้ยค้างทั้งหมด","ค่าปรับระเบียบทั้งหมด","รวมยอดสุทธิ"]];
+  for(const s of students){
+    const list = days.filter(d => Number(d.amount_per_student) > 0 && !payments.some(p => p.collection_date === d.collection_date && Number(p.student_no) === s.student_no && p.is_paid));
+    let baseTotal = 0, interestTotal = 0;
+    list.forEach(d => {
+      baseTotal += Number(d.amount_per_student);
+      interestTotal += getDaysOverdue(d.collection_date) * fineRate;
+    });
+    const studentViolations = violations.filter(v => Number(v.student_no) === s.student_no);
+    let violTotal = 0;
+    studentViolations.forEach(v => {
+      violTotal += Number(v.uniform_fine || 0) + Number(v.nail_fine || 0) + Number(v.other_fine || 0);
+    });
+    const grandTotal = baseTotal + interestTotal + violTotal;
+    rows.push([s.student_no, s.full_name, baseTotal, interestTotal, violTotal, grandTotal]);
   }
   const csv="\uFEFF"+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"}),url=URL.createObjectURL(blob),a=document.createElement("a");
-  a.href=url;a.download=`class-money-with-fine-${today()}.csv`;a.click();URL.revokeObjectURL(url);
+  a.href=url;a.download=`class-money-summary-${today()}.csv`;a.click();URL.revokeObjectURL(url);
 }
 
 function bindEvents(){
   $("selectedDate").value=selectedDate;
-  $("selectedDate").addEventListener("change",e=>{selectedDate=e.target.value;renderDashboard()});
+  $("selectedDate").addEventListener("change",e=>{selectedDate=e.target.value;renderDashboard();renderViolationsTable();});
   $("saveRateBtn").addEventListener("click",saveRate);
   $("saveFineRateBtn").addEventListener("click",saveFineRate);
   $("studentGrid").addEventListener("click",e=>{const b=e.target.closest("[data-student]");if(b&&!b.disabled)togglePayment(Number(b.dataset.student))});
+  $("violationsContent").addEventListener("input",e=>{
+    if(e.target.classList.contains("viol-input")){
+      updateViolation(Number(e.target.dataset.student), e.target.dataset.field, e.target.value);
+    }
+  });
   $("exportBtn").addEventListener("click",exportCsv);
   document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
     document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===btn));
-    ["arrears","history","export"].forEach(k=>$(k+"Panel").classList.toggle("hidden",k!==btn.dataset.tab));
+    ["arrears","violations","history","export"].forEach(k=>$(k+"Panel").classList.toggle("hidden",k!==btn.dataset.tab));
   }));
   $("historyContent").addEventListener("click",e=>{
     const b=e.target.closest("[data-history-date]");
-    if(b){selectedDate=b.dataset.historyDate;$("selectedDate").value=selectedDate;renderDashboard();window.scrollTo({top:0,behavior:"smooth"})}
+    if(b){selectedDate=b.dataset.historyDate;$("selectedDate").value=selectedDate;renderDashboard();renderViolationsTable();window.scrollTo({top:0,behavior:"smooth"})}
   });
   $("loginForm").addEventListener("submit",async e=>{
     e.preventDefault();$("loginError").textContent="";
@@ -492,7 +570,7 @@ auth.onAuthStateChanged(user=>{
   else{
     currentUser=null;currentRole=null;
     $("appView").classList.add("hidden");$("loginView").classList.remove("hidden");
-    $("roleLabel")?.remove();
+    $("roleLabel"]?.remove();
     setConnection("รอเข้าสู่ระบบ","offline");
   }
 });
@@ -501,4 +579,3 @@ $("selectedDate").value=selectedDate;
   </script>
 </body>
 </html>
-
