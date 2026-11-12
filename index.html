@@ -190,7 +190,7 @@ tbody tr:hover{background:#fbfefb}
             <button id="exportBtn" class="button button-primary">ดาวน์โหลดไฟล์ CSV สำหรับ Excel</button>
           </div>
         </section>
-        <p class="footnote">ข้อมูลจัดเก็บบน Firebase Cloud Firestore (ยอดค้างสะสมต่อเนื่องไม่หมดอายุ)</p>
+        <p class="footnote">ข้อมูลจัดเก็บบบน Firebase Cloud Firestore (ยอดค้างสะสมต่อเนื่องไม่หมดอายุ)</p>
       </section>
     </main>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -326,7 +326,6 @@ function renderArrears(){
       detailParts.push(`${dateFormatted} (ต้น ${base} + ดอกเบี้ย ${interest}บ.)`);
     });
 
-    // รวมค่าปรับระเบียบรายบุคคลทั้งหมดที่ยังไม่เคลียร์หรือทุกวัน
     const studentViolations = violations.filter(v => Number(v.student_no) === s.student_no);
     let violTotal = 0;
     studentViolations.forEach(v => {
@@ -570,7 +569,7 @@ auth.onAuthStateChanged(user=>{
   else{
     currentUser=null;currentRole=null;
     $("appView").classList.add("hidden");$("loginView").classList.remove("hidden");
-    $("roleLabel"]?.remove();
+    $("roleLabel")?.remove();
     setConnection("รอเข้าสู่ระบบ","offline");
   }
 });
