@@ -153,7 +153,7 @@ tbody tr:hover{background:#fbfefb}
 
       <section id="appView" class="hidden">
         <div class="page-heading">
-          <div><p class="eyebrow">CLASSROOM COLLECTION</p><h1>จัดการเงินห้องเรียน</h1><p class="muted">บันทึกออนไลน์และดูข้อมูลร่วมกันได้ตามสิทธิ์บัญชี (พร้อมระบบสะสมยอดค้าง, ดอกเบี้ย และค่าปรับระเบียบรายบุคคล)</p></div>
+          <div><p class="eyebrow">CLASSROOM COLLECTION</p><h1>จัดการเงินห้องเรียน</h1><p class="muted">บันทึกออนไลน์และดูข้อมูลร่วมกันได้ตามสิทธิ์บัญชี (พร้อมระบบสะสมยอดค้าง, ดอกเบี้ยรายวันแยกตามวัน และค่าปรับระเบียบรายบุคคล)</p></div>
           <div class="date-control"><label for="selectedDate">วันที่บันทึก</label><input id="selectedDate" type="date"></div>
         </div>
 
@@ -170,15 +170,15 @@ tbody tr:hover{background:#fbfefb}
           <div class="toolbar-actions">
             <label class="rate-control">เก็บคนละ <input id="dailyRate" type="number" min="0" step="0.01" inputmode="decimal" placeholder="เช่น 10"> บาท</label>
             <button id="saveRateBtn" class="button button-soft">บันทึกอัตราของวันนี้</button>
-            <label class="rate-control">ค่าปรับค้าง/วัน <input id="fineRateInput" type="number" min="0" step="1" value="5"> บาท</label>
-            <button id="saveFineRateBtn" class="button button-soft">บันทึกค่าปรับ</button>
+            <label class="rate-control">ค่าปรับ/วัน <input id="fineRateInput" type="number" min="0" step="1" placeholder="เช่น 5"> บาท</label>
+            <button id="saveFineRateBtn" class="button button-soft">บันทึกค่าปรับของวันนี้</button>
           </div>
         </div>
 
         <div class="student-grid" id="studentGrid"></div>
 
         <section class="panel">
-          <div class="panel-heading"><div><h2>เมนูจัดการ</h2><p class="muted">ดูยอดค้าง (รวมดอกเบี้ยและค่าปรับระเบียบรายบุคคล), บันทึกระเบียบ, ประวัติ และส่งออกข้อมูล</p></div></div>
+          <div class="panel-heading"><div><h2>เมนูจัดการ</h2><p class="muted">ดูยอดค้าง (รวมดอกเบี้ยตามเรทแต่ละวัน และค่าปรับระเบียบ), บันทึกระเบียบ, ประวัติ และส่งออกข้อมูล</p></div></div>
           <div class="nav-tabs">
             <button class="tab active" data-tab="arrears">ยอดค้างรายบุคคล (สุทธิ)</button>
             <button class="tab" data-tab="violations">บันทึกค่าปรับระเบียบ (รายวัน)</button>
@@ -227,14 +227,13 @@ const roster = ["นายพาทิศ นิยม", "นายวิชย�
 let students=roster.map((full_name,i)=>({student_no:i+1,full_name}));
 let days=[], payments=[], violations=[], selectedDate=today(), busy=new Set(), toastTimer, currentUser=null, currentRole=null;
 
-let fineRate = 5; 
-
 function toast(message,error=false){const el=$("toast");el.textContent=message;el.className=`toast show${error?" error":""}`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className="toast",3200)}
 function setConnection(message,state="online"){$("connection").innerHTML=`<i></i>${message}`;$("connection").className=`connection ${state}`}
 function canEdit(){return currentRole==="admin"||currentRole==="treasurer"}
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function currentDay(){return days.find(d=>d.collection_date===selectedDate)}
 function rateForDay(){return Number(currentDay()?.amount_per_student||0)}
+function fineRateForDay(){return currentDay()?.fine_rate !== undefined ? Number(currentDay().fine_rate) : 5;}
 function paidSet(){return new Set(payments.filter(p=>p.collection_date===selectedDate&&p.is_paid).map(p=>Number(p.student_no)))}
 
 function getDaysOverdue(collectionDateStr) {
@@ -261,21 +260,14 @@ function calcAllTimeCollected() {
 
 async function loadCloudData(){
   setConnection("กำลังโหลดข้อมูล…","offline");
-  const [daySnap,paySnap,violSnap,configSnap]=await Promise.all([
+  const [daySnap,paySnap,violSnap]=await Promise.all([
     db.collection("days").get(),
     db.collection("payments").get(),
-    db.collection("violations").get(),
-    db.collection("settings").doc("config").get()
+    db.collection("violations").get()
   ]);
   days=daySnap.docs.map(d=>d.data());
   payments=paySnap.docs.map(d=>d.data());
   violations=violSnap.docs.map(d=>d.data());
-  if(configSnap.exists && configSnap.data().fineRate !== undefined){
-    fineRate = Number(configSnap.data().fineRate);
-  }
-  $("fineRateInput").value = fineRate;
-  $("fineRateInput").disabled = !canEdit();
-  $("saveFineRateBtn").disabled = !canEdit();
 
   renderAll();
   setConnection("ออนไลน์ • ข้อมูลจาก Cloud Firestore","online");
@@ -286,7 +278,7 @@ function renderDashboard(){
   $("allTimeCollectedAmount").textContent = money(allTime.totalAllDays);
   $("allTimeCaption").textContent = `สะสมจาก ${allTime.totalDays} วันที่มีการเก็บ (${allTime.paidCountAll} รายการ)`;
 
-  const paid=paidSet(),rate=rateForDay(),total=students.length*rate,collected=paid.size*rate,missing=total-collected;
+  const paid=paidSet(),rate=rateForDay(),fineRate=fineRateForDay(),total=students.length*rate,collected=paid.size*rate,missing=total-collected;
   $("collectedAmount").textContent=money(collected);
   $("missingAmount").textContent=money(missing);
   $("expectedAmount").textContent=money(total);
@@ -294,9 +286,15 @@ function renderDashboard(){
   $("unpaidCount").textContent=`ยังไม่จ่าย ${students.length-paid.size} คน`;
   $("rateCaption").textContent=`อัตราวันนี้ ${money(rate)} / คน`;
   $("studentCount").textContent=students.length;
-  $("dailyRate").value=currentDay()?rate:"";
+  
+  $("dailyRate").value=currentDay() && currentDay().amount_per_student !== undefined ? currentDay().amount_per_student : "";
+  $("fineRateInput").value=fineRate;
+  
   $("dailyRate").disabled=!canEdit();
   $("saveRateBtn").disabled=!canEdit();
+  $("fineRateInput").disabled=!canEdit();
+  $("saveFineRateBtn").disabled=!canEdit();
+
   $("studentGrid").innerHTML=students.map(s=>{
     const isPaid=paid.has(s.student_no);
     return `<button class="student-row" data-student="${s.student_no}" ${canEdit()?"":"disabled"}><span class="student-name"><span class="student-no">${String(s.student_no).padStart(2,"0")}</span><span class="student-fullname">${escapeHtml(s.full_name)}</span></span><span class="status ${isPaid?"paid":"unpaid"}">${isPaid?"✓ จ่ายแล้ว":"ยังไม่จ่าย"}</span></button>`
@@ -341,12 +339,13 @@ function renderArrears(){
 
     list.forEach(d => {
       const base = Number(d.amount_per_student);
+      const dayFineRate = d.fine_rate !== undefined ? Number(d.fine_rate) : 5;
       const overdueDays = getDaysOverdue(d.collection_date);
-      const interest = overdueDays * fineRate;
+      const interest = overdueDays * dayFineRate;
       baseTotal += base;
       interestTotal += interest;
       const dateFormatted = new Date(d.collection_date + "T00:00:00").toLocaleDateString("th-TH");
-      detailParts.push(`${dateFormatted} (ต้น ${base} + ดอกเบี้ย ${interest}บ.)`);
+      detailParts.push(`${dateFormatted} (ต้น ${base} + ดอกเบี้ย ${interest}บ. @${dayFineRate}/วัน)`);
     });
 
     const studentViolations = violations.filter(v => Number(v.student_no) === s.student_no);
@@ -396,9 +395,9 @@ function renderArrears(){
 
 function renderHistory(){
   const sorted=[...days].sort((a,b)=>b.collection_date.localeCompare(a.collection_date));
-  $("historyContent").innerHTML=sorted.length?`<table><thead><tr><th>วันที่</th><th>อัตรา/คน</th><th>จ่ายแล้ว</th><th>ยังไม่จ่าย</th><th>เก็บได้</th><th>ยังขาด</th></tr></thead><tbody>${sorted.map(d=>{
-    const paid=payments.filter(p=>p.collection_date===d.collection_date&&p.is_paid).length,rate=Number(d.amount_per_student),collected=paid*rate,missing=(students.length-paid)*rate;
-    return `<tr><td><button class="text-link" data-history-date="${d.collection_date}">${new Date(d.collection_date+"T00:00:00").toLocaleDateString("th-TH")}</button></td><td>${money(rate)}</td><td>${paid}</td><td>${students.length-paid}</td><td>${money(collected)}</td><td>${money(missing)}</td></tr>`
+  $("historyContent").innerHTML=sorted.length?`<table><thead><tr><th>วันที่</th><th>อัตรา/คน</th><th>ค่าปรับ/วัน</th><th>จ่ายแล้ว</th><th>ยังไม่จ่าย</th><th>เก็บได้</th><th>ยังขาด</th></tr></thead><tbody>${sorted.map(d=>{
+    const paid=payments.filter(p=>p.collection_date===d.collection_date&&p.is_paid).length,rate=Number(d.amount_per_student||0),dayFine=d.fine_rate!==undefined?Number(d.fine_rate):5,collected=paid*rate,missing=(students.length-paid)*rate;
+    return `<tr><td><button class="text-link" data-history-date="${d.collection_date}">${new Date(d.collection_date+"T00:00:00").toLocaleDateString("th-TH")}</button></td><td>${money(rate)}</td><td>${dayFine} บาท</td><td>${paid}</td><td>${students.length-paid}</td><td>${money(collected)}</td><td>${money(missing)}</td></tr>`
   }).join("")}</tbody></table>`:`<div class="empty">ยังไม่มีประวัติการเก็บเงิน</div>`;
 }
 
@@ -408,13 +407,17 @@ async function saveRate(){
   if(!canEdit())return toast("บัญชีนี้ไม่มีสิทธิ์แก้ไขข้อมูล",true);
   const raw=$("dailyRate").value,amount=Number(raw);
   if(raw===""||!Number.isFinite(amount)||amount<0)return toast("กรุณากรอกจำนวนเงินตั้งแต่ 0 บาทขึ้นไป",true);
-  const row={collection_date:selectedDate,amount_per_student:amount,updated_at:firebase.firestore.FieldValue.serverTimestamp(),updated_by:currentUser.uid};
+  
+  let currentDayData = days.find(d=>d.collection_date===selectedDate) || {collection_date:selectedDate, amount_per_student:amount, fine_rate:5};
+  currentDayData.amount_per_student = amount;
+  currentDayData.updated_at = firebase.firestore.FieldValue.serverTimestamp();
+  currentDayData.updated_by = currentUser.uid;
+
   try{
-    await db.collection("days").doc(selectedDate).set(row,{merge:true});
+    await db.collection("days").doc(selectedDate).set(currentDayData,{merge:true});
     const i=days.findIndex(d=>d.collection_date===selectedDate);
-    const localRow={collection_date:selectedDate,amount_per_student:amount};
-    if(i>=0)days[i]=localRow;else days.push(localRow);
-    renderAll();toast("บันทึกอัตราของวันนี้แล้ว");
+    if(i>=0)days[i]=currentDayData;else days.push(currentDayData);
+    renderAll();toast("บันทึกอัตราเก็บเงินของวันนี้แล้ว");
   }catch(e){console.error(e);toast("บันทึกไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore",true)}
 }
 
@@ -422,17 +425,24 @@ async function saveFineRate(){
   if(!canEdit())return toast("บัญชีนี้ไม่มีสิทธิ์แก้ไขข้อมูล",true);
   const raw=$("fineRateInput").value,amount=Number(raw);
   if(raw===""||!Number.isFinite(amount)||amount<0)return toast("กรุณากรอกค่าปรับตั้งแต่ 0 บาทขึ้นไป",true);
+
+  let currentDayData = days.find(d=>d.collection_date===selectedDate) || {collection_date:selectedDate, amount_per_student:0, fine_rate:amount};
+  currentDayData.fine_rate = amount;
+  currentDayData.updated_at = firebase.firestore.FieldValue.serverTimestamp();
+  currentDayData.updated_by = currentUser.uid;
+
   try{
-    await db.collection("settings").doc("config").set({fineRate:amount,updated_at:firebase.firestore.FieldValue.serverTimestamp(),updated_by:currentUser.uid},{merge:true});
-    fineRate=amount;
+    await db.collection("days").doc(selectedDate).set(currentDayData,{merge:true});
+    const i=days.findIndex(d=>d.collection_date===selectedDate);
+    if(i>=0)days[i]=currentDayData;else days.push(currentDayData);
     renderAll();
-    toast("บันทึกอัตราค่าปรับ/วันเรียบร้อยแล้ว");
+    toast("บันทึกอัตราค่าปรับของวันนี้เรียบร้อยแล้ว");
   }catch(e){console.error(e);toast("บันทึกค่าปรับไม่สำเร็จ ตรวจสอบสิทธิ์ Firestore",true)}
 }
 
 async function togglePayment(no){
   if(!canEdit())return toast("บัญชีนี้ดูข้อมูลได้อย่างเดียว",true);
-  if(!currentDay())return toast("กรุณากำหนดและบันทึกอัตราเก็บเงินของวันนี้ก่อน",true);
+  if(!currentDay()||currentDay().amount_per_student===undefined)return toast("กรุณากำหนดและบันทึกอัตราเก็บเงินของวันนี้ก่อน",true);
   const old=payments.find(p=>p.collection_date===selectedDate&&Number(p.student_no)===no);
   const nextPaid=!(old&&old.is_paid);
   const id=`${selectedDate}_${no}`;
@@ -473,7 +483,8 @@ function exportCsv(){
     let baseTotal = 0, interestTotal = 0;
     list.forEach(d => {
       baseTotal += Number(d.amount_per_student);
-      interestTotal += getDaysOverdue(d.collection_date) * fineRate;
+      const dayFineRate = d.fine_rate !== undefined ? Number(d.fine_rate) : 5;
+      interestTotal += getDaysOverdue(d.collection_date) * dayFineRate;
     });
     const studentViolations = violations.filter(v => Number(v.student_no) === s.student_no);
     let violTotal = 0;
