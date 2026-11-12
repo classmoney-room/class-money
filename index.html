@@ -35,14 +35,18 @@ body{margin:0;background:linear-gradient(180deg,#eff8f1 0,#f8fbf8 260px,#f8fbf8 
 .date-control{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);font-weight:500}
 .date-control input,.rate-control input{border:1px solid var(--line);border-radius:12px;padding:10px 13px;background:white;color:var(--ink);outline:none;box-shadow:0 2px 7px rgba(38,90,55,.025)}
 .date-control input:focus,.rate-control input:focus,input:focus{border-color:#8bc5a0;box-shadow:0 0 0 3px #e8f6ec}
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:34px}
-.stat-card{position:relative;overflow:hidden;background:white;border:1px solid var(--line);border-radius:19px;padding:19px 20px;box-shadow:var(--shadow)}
+.stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:34px}
+.stat-card{position:relative;overflow:hidden;background:white;border:1px solid var(--line);border-radius:19px;padding:17px 18px;box-shadow:var(--shadow)}
 .stat-card:after{content:"";position:absolute;width:68px;height:68px;border-radius:50%;right:-23px;top:-25px;background:#f0f8f2}
 .stat-card span{font-size:12px;color:var(--muted);position:relative;z-index:1}
-.stat-card strong{display:block;font-size:28px;margin:6px 0 1px;font-weight:600;position:relative;z-index:1;letter-spacing:-.3px}
+.stat-card strong{display:block;font-size:24px;margin:6px 0 1px;font-weight:600;position:relative;z-index:1;letter-spacing:-.3px}
 .stat-card small{font-size:11px;color:var(--muted);position:relative;z-index:1}
 .stat-green{background:linear-gradient(135deg,#e8f7ed,#f5fbf6);border-color:#d5ebdc}
 .stat-green strong{color:var(--green-deep)}
+.stat-total{background:linear-gradient(135deg,#2f8b5b,#236b46);border-color:#236b46;color:#fff}
+.stat-total:after{background:rgba(255,255,255,.08)}
+.stat-total span,.stat-total small{color:#d5f0df}
+.stat-total strong{color:#fff}
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:15px}
 .toolbar h2,.panel h2{font-size:19px;margin:0;font-weight:500}
 .toolbar-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
@@ -102,13 +106,14 @@ tbody tr:hover{background:#fbfefb}
  .page-heading{align-items:flex-start;flex-direction:column}.page-heading h1{font-size:25px}
  .date-control{width:100%}.date-control input{width:100%}
  .stats-grid{grid-template-columns:repeat(2,1fr);gap:9px}
- .stat-card{padding:14px;border-radius:16px}.stat-card strong{font-size:23px}
+ .stat-total{grid-column:span 2}
+ .stat-card{padding:14px;border-radius:16px}.stat-card strong{font-size:22px}
  .toolbar{align-items:flex-start;flex-direction:column}.toolbar-actions{width:100%}
  .student-grid{grid-template-columns:1fr;gap:8px}.student-row{padding:11px 12px}
  .panel{padding:15px;border-radius:17px}.connection{font-size:0;padding:9px}.connection i{width:10px;height:10px}
  .brand strong{font-size:17px}.rate-control{flex:1}.rate-control input{min-width:0;width:75px}
 }
-@media(min-width:761px) and (max-width:980px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:761px) and (max-width:1080px){.stats-grid{grid-template-columns:repeat(3,1fr)}.stat-total{grid-column:span 3}}
   </style>
 </head>
 <body>
@@ -153,9 +158,10 @@ tbody tr:hover{background:#fbfefb}
         </div>
 
         <div class="stats-grid">
-          <article class="stat-card stat-green"><span>เก็บได้ทั้งหมด</span><strong id="collectedAmount">—</strong><small id="paidCount">—</small></article>
-          <article class="stat-card"><span>ยังขาด</span><strong id="missingAmount">—</strong><small id="unpaidCount">—</small></article>
-          <article class="stat-card"><span>ยอดที่ต้องเก็บ</span><strong id="expectedAmount">—</strong><small id="rateCaption">กำหนดอัตรารายวัน</small></article>
+          <article class="stat-card stat-total"><span>ยอดรวมทั้งหมดตั้งแต่เริ่มเก็บ</span><strong id="allTimeCollectedAmount">—</strong><small id="allTimeCaption">รวมเงินรายวันทั้งหมดที่เก็บได้แล้ว</small></article>
+          <article class="stat-card stat-green"><span>เก็บได้วันนี้</span><strong id="collectedAmount">—</strong><small id="paidCount">—</small></article>
+          <article class="stat-card"><span>ยังขาดวันนี้</span><strong id="missingAmount">—</strong><small id="unpaidCount">—</small></article>
+          <article class="stat-card"><span>ยอดที่ต้องเก็บวันนี้</span><strong id="expectedAmount">—</strong><small id="rateCaption">กำหนดอัตรารายวัน</small></article>
           <article class="stat-card"><span>นักเรียนทั้งหมด</span><strong id="studentCount">39</strong><small>รายชื่อในห้องเรียน</small></article>
         </div>
 
@@ -240,6 +246,19 @@ function getDaysOverdue(collectionDateStr) {
   return Math.max(0, diffDays);
 }
 
+function calcAllTimeCollected() {
+  const rateMap = new Map(days.map(d => [d.collection_date, Number(d.amount_per_student || 0)]));
+  let totalAllDays = 0;
+  let paidCountAll = 0;
+  payments.forEach(p => {
+    if (p.is_paid && rateMap.has(p.collection_date)) {
+      totalAllDays += rateMap.get(p.collection_date);
+      paidCountAll++;
+    }
+  });
+  return { totalAllDays, paidCountAll, totalDays: days.filter(d => Number(d.amount_per_student) > 0).length };
+}
+
 async function loadCloudData(){
   setConnection("กำลังโหลดข้อมูล…","offline");
   const [daySnap,paySnap,violSnap,configSnap]=await Promise.all([
@@ -263,6 +282,10 @@ async function loadCloudData(){
 }
 
 function renderDashboard(){
+  const allTime = calcAllTimeCollected();
+  $("allTimeCollectedAmount").textContent = money(allTime.totalAllDays);
+  $("allTimeCaption").textContent = `สะสมจาก ${allTime.totalDays} วันที่มีการเก็บ (${allTime.paidCountAll} รายการ)`;
+
   const paid=paidSet(),rate=rateForDay(),total=students.length*rate,collected=paid.size*rate,missing=total-collected;
   $("collectedAmount").textContent=money(collected);
   $("missingAmount").textContent=money(missing);
@@ -569,7 +592,7 @@ auth.onAuthStateChanged(user=>{
   else{
     currentUser=null;currentRole=null;
     $("appView").classList.add("hidden");$("loginView").classList.remove("hidden");
-    $("roleLabel")?.remove();
+    $("roleLabel"]?.remove();
     setConnection("รอเข้าสู่ระบบ","offline");
   }
 });
