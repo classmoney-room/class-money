@@ -238,11 +238,20 @@ function paidSet(){return new Set(payments.filter(p=>p.collection_date===selecte
 
 function getDaysOverdue(collectionDateStr) {
   const todayStr = today();
-  const d1 = new Date(collectionDateStr + "T00:00:00");
-  const d2 = new Date(todayStr + "T00:00:00");
-  const diffTime = d2 - d1;
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  return Math.max(0, diffDays);
+  let current = new Date(collectionDateStr + "T00:00:00");
+  const target = new Date(todayStr + "T00:00:00");
+  
+  let weekdayCount = 0;
+  current.setDate(current.getDate() + 1);
+  while (current <= target) {
+    const dayOfWeek = current.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      weekdayCount++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return Math.max(0, weekdayCount);
 }
 
 function calcAllTimeCollected() {
